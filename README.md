@@ -1,5 +1,7 @@
 # nextjs-client-ffmpeg
 
+[![CI](https://github.com/DerLev/nextjs-client-ffmpeg/actions/workflows/integration.yml/badge.svg?branch=main&event=push)](https://github.com/DerLev/nextjs-client-ffmpeg/actions/workflows/integration.yml)
+
 This is a NextJS webapp capable of converting multimedia files through ffmpeg 
 on the client-side
 
