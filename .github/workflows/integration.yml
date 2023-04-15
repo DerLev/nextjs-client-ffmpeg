@@ -1,0 +1,42 @@
+name: CI
+on:
+  push:
+    branches:
+      - "main"
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  lint-and-build:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.event.head_commit.message, 'wip:') }}
+    permissions:
+      checks: write
+      pull-requests: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Setup Nodejs environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "yarn"
+      - name: Install Dependencies
+        run: yarn
+      - name: Lint App
+        run: yarn lint --output-file eslint_report.json --format json
+        continue-on-error: true
+      - name: Type Check App
+        run: yarn tsc > typescript.log
+        continue-on-error: true
+      - uses: DerLev/eslint-annotations@v1
+        with:
+          eslint-report: eslint_report.json
+          typescript-log: typescript.log
+          error-on-warn: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          status-check-name: Annotations

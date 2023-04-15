@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc.json",
+  "extends": [
+    "next/core-web-vitals",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "rules" : {
+    "@next/next/no-html-link-for-pages": 0,
+    "no-console": 1,
+    "@typescript-eslint/ban-ts-comment": 0,
+    "@typescript-eslint/no-explicit-any": 0,
+    "react-hooks/rules-of-hooks": 0
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "unused-imports"
+  ],
+  "parser": "@typescript-eslint/parser"
+}
