@@ -3,6 +3,7 @@ import Head from 'next/head'
 import { MantineProvider } from '@mantine/core'
 import { RouterTransition } from '@/components/RouterTransition'
 import AppShellComponent from '@/components/AppShell'
+import { Notifications } from '@mantine/notifications'
 
 export default function App(props: AppProps) {
   const { Component, pageProps } = props
@@ -23,6 +24,10 @@ export default function App(props: AppProps) {
         }}
       >
         <RouterTransition />
+        <Notifications {...{
+          position: 'top-center',
+          autoClose: 2500
+        }}  />
         <AppShellComponent>
           <Component {...pageProps} />
         </AppShellComponent>
