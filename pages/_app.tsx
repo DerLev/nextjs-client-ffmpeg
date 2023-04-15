@@ -23,7 +23,9 @@ export default function App(props: AppProps) {
         }}
       >
         <RouterTransition />
-        <AppShellComponent children={<Component {...pageProps} />} />
+        <AppShellComponent>
+          <Component {...pageProps} />
+        </AppShellComponent>
       </MantineProvider>
     </>
   )
