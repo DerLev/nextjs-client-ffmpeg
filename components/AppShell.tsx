@@ -2,7 +2,7 @@ import { AppShell, Button, Flex, Header, Title } from '@mantine/core'
 import Link from 'next/link'
 
 const HeaderComponent = () => (
-  <Header height={{ base: 50, md: 60 }} p={'xs'}>
+  <Header height={{ base: 50, md: 60 }} py={4} px={'xs'}>
     <Flex align={'center'} h={'100%'}>
       <Button component={Link} href="/" p={0} variant='subtle' h={'100%'}>
         <Title size={'h2'}>nextjs-client-ffmpeg</Title>
