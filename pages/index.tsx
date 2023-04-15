@@ -1,5 +1,5 @@
 import type { NextPage } from 'next'
-import { Badge, Button, Card, Container, Flex, Grid, Group, SimpleGrid, Text } from '@mantine/core'
+import { Badge, Button, Card, Container, Flex, Grid, Group, Text } from '@mantine/core'
 import { HiHeart } from 'react-icons/hi2'
 import Image from 'next/image'
 import Link from 'next/link'
