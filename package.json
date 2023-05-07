@@ -12,6 +12,8 @@
   "dependencies": {
     "@emotion/react": "^11.10.6",
     "@emotion/server": "^11.10.0",
+    "@ffmpeg/core": "^0.11.0",
+    "@ffmpeg/ffmpeg": "^0.11.6",
     "@mantine/core": "^6.0.7",
     "@mantine/dropzone": "^6.0.7",
     "@mantine/hooks": "^6.0.7",
@@ -22,7 +24,8 @@
     "plyr-react": "^5.1.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-icons": "^4.8.0"
+    "react-icons": "^4.8.0",
+    "sharp": "^0.32.1"
   },
   "devDependencies": {
     "@types/node": "18.15.11",

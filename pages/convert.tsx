@@ -1,12 +1,34 @@
 import type { NextPage } from 'next'
-import type { FileState } from '@/types/custom'
+import type { FileState, LoadingState } from '@/types/custom'
 import { useEffect, useState } from 'react'
-import { Alert, Button, Container, Flex, Loader, Text, Title } from '@mantine/core'
-import Link from 'next/link'
-import { HiOutlineExclamationCircle, HiOutlineHome, HiOutlineTrash } from 'react-icons/hi2'
+import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg'
+import { Button, Container, Group, Title } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { HiOutlineCog, HiOutlineTrash, HiOutlineXMark } from 'react-icons/hi2'
+import stripFileextension from '@/lib/stripFileextension'
+import additionalFlags from '@/lib/ffmpegFlags'
 import PlayerWithInfo from '@/components/converter/PlayerWithInfo'
 import ConverterDropzone from '@/components/converter/Dropzone'
-import { notifications } from '@mantine/notifications'
+import FiletypeSelection from '@/components/converter/FiletypeSelection'
+import ConvertingProgress from '@/components/converter/ConvertingProgress'
+import DownloadOutput from '@/components/converter/DownloadOutput'
+import WasmError from '@/components/converter/WasmError'
+import PageLoading from '@/components/converter/PageLoading'
+
+const ffmpegDevMode = () => {
+  if(process.env.NODE_ENV !== 'production') return {
+    log: true,
+    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+    wasmPath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.wasm',
+    workerPath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.worker.js',
+  }
+
+  return {}
+}
+
+const ffmpeg = createFFmpeg({
+  ...ffmpegDevMode()
+})
 
 // See https://stackoverflow.com/a/47880734
 const wasmSupported = (() => {
@@ -23,14 +45,39 @@ const wasmSupported = (() => {
 })
 
 const Convert: NextPage = () => {
-  const [loadingPage, setLoadingPage] = useState(true)
+  const [loadingPage, setLoadingPage] = useState<LoadingState>({ loading: true, module: 'general' })
   const [wasm, setWasm] = useState(false)
   const [file, setFile] = useState<FileState>()
+  const [filetype, setFiletype] = useState<string | null>(null)
+  const [converting, setConverting] = useState(false)
+  const [output, setOutput] = useState<string | null>(null)
+  const [convertProgress, setConvertProgress] = useState(0)
+  
+  const loadFfmpeg = async () => {
+    if(ffmpeg.isLoaded()) {
+      ffmpeg.setProgress(({ ratio }) => {
+        setConvertProgress(ratio)
+      })
+      return setLoadingPage({ loading: false, module: 'none'})
+    }
+    await ffmpeg.load()
+    ffmpeg.setProgress(({ ratio }) => {
+      setConvertProgress(ratio)
+    })
+    setLoadingPage({ loading: false, module: 'none'})
+  }
 
   useEffect(() => {
+    setLoadingPage({ loading: true, module: 'wasm' })
     const getWasmSupport = wasmSupported()
     setWasm(getWasmSupport)
-    setLoadingPage(false)
+
+    if(getWasmSupport === true) {
+      setLoadingPage({ loading: true, module: 'ffmpeg' })
+      loadFfmpeg()
+    } else {
+      setLoadingPage({ loading: false, module: 'none'})
+    }
   }, [setWasm, setLoadingPage])
 
   const deleteFile = () => {
@@ -46,41 +93,84 @@ const Convert: NextPage = () => {
       })
       // @ts-ignore
       setFile()
+      setFiletype(null)
     }
   }
 
-  if(loadingPage) return (
-    <Container maw={1140}>
-      <Flex gap={16} align={'center'}>
-        <Loader size={'lg'} variant='bars' color='gray' />
-        <Title size={'h1'}>Loading...</Title>
-      </Flex>
-    </Container>
-  )
+  const startConversion = async () => {
+    if(!file) return
+    if(typeof filetype !== 'string') return notifications.show({
+      message: 'Select a filetype to convert to',
+      title: 'No filetype selected',
+      color: 'red',
+      icon: <HiOutlineXMark />,
+      withCloseButton: false,
+      id: 'no-filetype'
+    })
 
-  if(wasm === false) return (
-    <Container maw={1140}>
-      <Title size={'h1'} mb={'lg'}>No Support</Title>
-      <Alert title="No WASM support" color='red' icon={<HiOutlineExclamationCircle size={20} />}>
-        <Text>
-          Your browser does not support client-side conversion, due to it being 
-          dependent on WebAssembly. Please update your browser or use a newer 
-          Browser (Chrome, Firefox, or other Chromium-based browsers)
-        </Text>
-        <Button
-          component={Link}
-          href="/"
-          mt={'md'}
-          compact
-          color='red'
-          variant='light'
-          leftIcon={<HiOutlineHome />}
-        >
-          Go back to home
-        </Button>
-      </Alert>
-    </Container>
-  )
+    setConverting(true)
+
+    if(filetype === stripFileextension(file.info.path).fileextension) {
+      setConverting(false)
+      return notifications.show({
+        message: 'The file you selected is already in the selected codec',
+        title: 'Filetype the same',
+        color: 'red',
+        icon: <HiOutlineXMark />,
+        withCloseButton: false,
+        id: 'filetype-same'
+      })
+    }
+
+    try {
+      ffmpeg.FS('writeFile', file.info.path, await fetchFile(file.url))
+      await ffmpeg.run('-i', file.info.path, ...additionalFlags(file.info.path, filetype), `out.${filetype}`)
+      const data = ffmpeg.FS('readFile', `out.${filetype}`)
+      const url = URL.createObjectURL(new Blob([data.buffer]))
+      setOutput(url)
+      setConverting(false)
+    } catch(err) {
+      notifications.show({
+        message: 'Please try again. If error persists look at JS console',
+        title: 'Error while converting',
+        color: 'red',
+        icon: <HiOutlineXMark />,
+        withCloseButton: false,
+        id: 'convert-error'
+      })
+      ffmpeg.setLogging(true)
+    }
+  }
+
+  const clearConversion = () => {
+    try {
+      if(output) ffmpeg.FS('unlink', `out.${filetype}`)
+      if(file) ffmpeg.FS('unlink', file.info.path)
+    } catch(err) {
+      // eslint-disable-next-line no-console
+      console.warn(err)
+    }
+
+    if(output) {
+      URL.revokeObjectURL(output)
+      setOutput(null)
+    }
+
+    if(file) {
+      URL.revokeObjectURL(file.url)
+      // @ts-ignore
+      setFile()
+    }
+
+    setFiletype(null)
+    setConvertProgress(0)
+  }
+
+  // Display loading placeholder page
+  if(loadingPage.loading) return <PageLoading module={loadingPage.module} />
+
+  // Display WASM error
+  if(wasm === false) return <WasmError />
 
   return (
     <Container maw={1140}>
@@ -89,7 +179,35 @@ const Convert: NextPage = () => {
         !file ? (
           <ConverterDropzone functions={{ setFile }} />
         ) : (
-          <PlayerWithInfo functions={{ file, deleteFile }} />
+          <>
+            {
+              !converting && !output &&
+              <PlayerWithInfo functions={{ file, deleteFile }} />
+            }
+            {
+              converting &&
+              <ConvertingProgress progress={convertProgress} />
+            }
+            <Container mah={641} mt={12}>
+              <Group grow position='center' align='end'>
+                <FiletypeSelection
+                  select={{ value: filetype, setValue: setFiletype, typeSelected: file.info.type, disabled: converting || Boolean(output) }}
+                />
+                <Button fullWidth color='green' leftIcon={<HiOutlineCog size={'1.25rem'} />} onClick={() => startConversion()} loading={converting} disabled={Boolean(output)}>
+                  Convert
+                </Button>
+              </Group>
+            </Container>
+            {
+              output &&
+              <DownloadOutput context={{
+                clearConversion,
+                filename: stripFileextension(file.info.path).filename,
+                filetype: filetype ? filetype : '',
+                outputUrl: output
+              }} />
+            }
+          </>
         )
       }
     </Container>

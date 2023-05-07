@@ -10,3 +10,8 @@ interface FileState {
   }
   url: string
 }
+
+interface LoadingState {
+  loading: boolean
+  module: 'general' | 'wasm' | 'ffmpeg' | 'none'
+}
